@@ -7,8 +7,7 @@ A great starting point for building RESTful APIs in Go using Gin framework, conn
 - Implements the Clean Architecture pattern for a scalable and maintainable
 - Uses the Gin framework for efficient and fast handling of HTTP requests
 - Integrates with MongoDB for powerful and flexible database operations
-- Integrates with MongoDb database
-- Integrates with Redis database
+- Integrates with Redis database for efficient caching
 - Uses Go Swag for Generating Rest Docs and Swagger panel (https://github.com/swaggo/swag)
 - Uses Air for live reload app (https://github.com/cosmtrek/air)
 
