@@ -86,4 +86,4 @@ $ swag init -d src/
 
 #### Special Thanks
 
-@Mehdikarimian - Inital Boilerplate with PostgresDB & Gorm TypeOrm
+@Mehdikarimian - Initial Boilerplate with PostgresDB & Gorm TypeOrm
