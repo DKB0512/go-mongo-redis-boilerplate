@@ -12,7 +12,7 @@ var RedisClient *_redis.Client
 //InitRedis ...
 func InitRedis(selectDB ...int) {
 
-	var redisHost = config.LoadConfig("REDIS_HOST")
+	var redisHost = config.LoadConfig("REDIS_HOST_WITH_PORT")
 	var redisPassword = config.LoadConfig("REDIS_PASSWORD")
 
 	RedisClient = _redis.NewClient(&_redis.Options{

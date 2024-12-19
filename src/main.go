@@ -5,7 +5,6 @@ import (
 	"go-boilerplate/src/config"
 	"go-boilerplate/src/controllers"
 	"go-boilerplate/src/core/db"
-	"go-boilerplate/src/models"
 
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
@@ -16,10 +15,6 @@ func main() {
 
 	db.InitRedis(1)
 	db.InitMongoDB()
-	db.InitPostgresDB()
-	db.InitGorm()
-
-	models.MigrateUsers()
 
 	// register controllers
 	controllers.UsersController(r)

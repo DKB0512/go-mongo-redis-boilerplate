@@ -13,8 +13,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB_NAME: postgres
-      REDIS_HOST: redis:6379
-      REDIS_PASSWORD: 
+      REDIS_HOST_WITH_PORT: redis:6379
+      REDIS_PASSWORD:
     networks:
       - go-network
   redis:
@@ -43,6 +43,6 @@ services:
       - 5432:5432
     networks:
       - go-network
-networks: 
+networks:
   go-network:
     driver: bridge

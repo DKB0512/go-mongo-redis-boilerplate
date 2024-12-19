@@ -57,11 +57,16 @@ func getUsers(ctx *gin.Context, ctr *BaseController) {
 	skip := utils.GetQueryInt(ctx, "skip", 0)
 	search := utils.GetQueryString(ctx, "search", "")
 
-	users, count := models.UsersModel().GetAllUsers(limit, skip, search)
+	users, count, err := models.UsersModel().GetAllUsers(limit, skip, search)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+		return
+	}
 
 	response := models.UsersResponse{
 		Users: users,
-		Count: count,
+		Count: int(count),
 	}
 
 	ctx.JSON(http.StatusOK, response)
@@ -95,7 +100,12 @@ func getUser(ctx *gin.Context, ctr *BaseController) {
 func createUser(ctx *gin.Context, ctr *BaseController) {
 	body := utils.GetBody[models.User](ctx)
 
-	result := models.UsersModel().CreateUser(body)
+	result, err := models.UsersModel().CreateUser(body)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+		return
+	}
 
 	ctx.JSON(http.StatusCreated, result)
 }
@@ -113,7 +123,12 @@ func updateUser(ctx *gin.Context, ctr *BaseController) {
 	body := utils.GetBody[models.User](ctx)
 
 	fmt.Println(param)
-	results := models.UsersModel().UpdateUser(models.UsersFindParam{ID: param.ID}, body)
+	results, err := models.UsersModel().UpdateUser(models.UsersFindParam{ID: param.ID}, body)
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+		return
+	}
 
 	ctx.JSON(http.StatusCreated, results)
 }
@@ -128,7 +143,12 @@ func updateUser(ctx *gin.Context, ctr *BaseController) {
 func deleteUser(ctx *gin.Context, ctr *BaseController) {
 	param := utils.GetParam[models.UsersFindParam](ctx)
 
-	results := models.UsersModel().DeleteUser(models.UsersFindParam{ID: param.ID})
+	results, err := models.UsersModel().DeleteUser(models.UsersFindParam{ID: param.ID})
+
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, err)
+		return
+	}
 
 	ctx.JSON(http.StatusOK, results)
 }

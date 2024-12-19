@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"fmt"
 	"go-boilerplate/src/common"
 	"go-boilerplate/src/config"
@@ -8,6 +9,8 @@ import (
 	"go-boilerplate/src/utils"
 	"strconv"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
@@ -17,7 +20,7 @@ import (
 func AuthModel() *BaseModel {
 	mod := &BaseModel{
 		ModelConstructor: &common.ModelConstructor{
-			Gorm: db.GetGorm(),
+			Collection: db.GetMongoDb().Collection("UserCollection"),
 		},
 	}
 
@@ -71,9 +74,11 @@ func (mod *BaseModel) LoginCheck(username, password string) (string, error) {
 
 	user := User{}
 
-	err = mod.Gorm.Limit(1).Where("username=?", username).Find(&user).Error
+	filter := bson.D{{Key: "username", Value: username}}
 
-	if err != nil || user.ID == 0 {
+	count, err := mod.Collection.CountDocuments(context.TODO(), filter)
+
+	if err != nil || count == 0 {
 		return "", err
 	}
 

@@ -1,16 +1,20 @@
 package models
 
 import (
-	"errors"
+	"context"
+	"fmt"
 	"go-boilerplate/src/common"
 	"go-boilerplate/src/core/db"
 	"time"
+
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func ArticlesModel() *BaseModel {
 	mod := &BaseModel{
 		ModelConstructor: &common.ModelConstructor{
-			Repository: db.GetPostgresDB(),
+			Collection: db.GetMongoDb().Collection("ArticleCollection"),
 		},
 	}
 
@@ -19,11 +23,12 @@ func ArticlesModel() *BaseModel {
 
 // models definitions
 type Article struct {
-	ID        int64     `db:"id, primarykey, autoincrement" json:"id"`
-	Title     string    `db:"title" json:"title"`
-	Content   string    `db:"content" json:"content"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID        uuid.UUID `json:"_id,omitempty"`
+	Title     string    `json:"title,omitempty"`
+	Content   string    `json:"content,omitempty"`
+	IsDeleted bool      `json:"is_deleted,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	CreatedAt time.Time `json:"created_at,omitempty"`
 }
 
 type CreateArticleForm struct {
@@ -37,56 +42,132 @@ type UpdateArticleForm struct {
 }
 
 type FindArticleForm struct {
-	ID int64 `form:"id" json:"id" binding:"required"`
+	ID uuid.UUID `form:"_id" json:"_id" binding:"required"`
 }
 
-//ArticleModel ...
+// ArticleModel ...
 type ArticleModel struct{}
 
-func (mod *BaseModel) GetAllArticles() (articles []Article, err error) {
-	_, err = mod.Repository.Select(&articles, "select a.id, a.title, a.content, a.updated_at, a.created_at from public.articles a order by a.id desc")
+func (mod *BaseModel) GetAllArticles() ([]Article, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := mod.Collection.Find(ctx, bson.M{})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to find article: %w", err)
+	}
+
+	defer cursor.Close(ctx)
+
+	var articles []Article
+	if err := cursor.All(ctx, &articles); err != nil {
+		return nil, fmt.Errorf("failed to decode article: %w", err)
+	}
+
 	return articles, err
 }
 
-func (mod *BaseModel) GetOneArticle(id int64) (article Article, err error) {
-	err = mod.Repository.SelectOne(&article, "SELECT a.id, a.title, a.content, a.updated_at, a.created_at FROM public.articles a WHERE a.id=$1 LIMIT 1", id)
-	return article, err
+func (mod *BaseModel) GetOneArticle(id uuid.UUID) (Article, error) {
+	var article Article
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	defer cancel()
+
+	err := mod.Collection.FindOne(ctx, bson.M{"_id": id}).Decode(&article)
+
+	if err != nil {
+		return article, fmt.Errorf("failed to find article: %w", err)
+	}
+
+	return article, nil
 }
 
-func (mod *BaseModel) CreateArticle(form CreateArticleForm) (articleID int64, err error) {
-	err = mod.Repository.QueryRow("INSERT INTO public.articles (title, content) VALUES($1, $2) RETURNING id", form.Title, form.Content).Scan(&articleID)
-	return articleID, err
+func (mod *BaseModel) CreateArticle(form CreateArticleForm) (uuid.UUID, error) {
+
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to find article: %w", err)
+	}
+
+	var article Article
+
+	article.ID = id
+	article.Title = form.Title
+	article.Content = form.Content
+	article.IsDeleted = false
+	article.CreatedAt = time.Now()
+	article.UpdatedAt = time.Now()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	defer cancel()
+
+	_, err = mod.Collection.InsertOne(ctx, article)
+
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to create a new article: %v", err)
+	}
+
+	return id, nil
 }
 
-func (mod *BaseModel) UpdateArticle(id int64, form UpdateArticleForm) (err error) {
-	_, err = mod.GetOneArticle(id)
+func (mod *BaseModel) UpdateArticle(id uuid.UUID, form UpdateArticleForm) error {
+	_, err := mod.GetOneArticle(id)
 	if err != nil {
 		return err
 	}
 
-	operation, err := mod.Repository.Exec("UPDATE public.articles SET title=$2, content=$3 WHERE id=$1", id, form.Title, form.Content)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.M{"_id": id, "is_deleted": false}
+	update := bson.M{
+		"$set": bson.M{
+			"title":      form.Title,
+			"content":    form.Content,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := mod.Collection.UpdateOne(ctx, filter, update)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update user: %v", err)
 	}
 
-	success, _ := operation.RowsAffected()
-	if success == 0 {
-		return errors.New("updated 0 records")
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("failed to update user: %v", err)
 	}
 
-	return err
+	return nil
 }
 
-func (mod *BaseModel) DeleteArticle(id int64) (err error) {
-	operation, err := mod.Repository.Exec("DELETE FROM public.articles WHERE id=$1", id)
+func (mod *BaseModel) DeleteArticle(id uuid.UUID) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.M{"_id": id}
+	update := bson.M{
+		"$set": bson.M{
+			"is_deleted": true,
+			"updated_at": time.Now(),
+		},
+	}
+
+	result, err := mod.Collection.UpdateOne(ctx, filter, update)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to update user: %v", err)
 	}
 
-	success, _ := operation.RowsAffected()
-	if success == 0 {
-		return errors.New("no records were deleted")
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("failed to update user: %v", err)
 	}
 
-	return err
+	return nil
 }

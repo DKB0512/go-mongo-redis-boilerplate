@@ -12,6 +12,14 @@ import (
 
 var client *mongo.Database
 
+type CollectionName string
+
+const (
+	UserCollection    CollectionName = "UserCollection"
+	ProductCollection CollectionName = "ProductCollection"
+	OrderCollection   CollectionName = "OrderCollection"
+)
+
 func connectMongoDb(connectionString string) (*mongo.Database, error) {
 	clientOptions := options.Client().ApplyURI(connectionString)
 	client, err := mongo.Connect(context.TODO(), clientOptions)

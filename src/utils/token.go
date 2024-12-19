@@ -3,18 +3,18 @@ package utils
 import (
 	"fmt"
 	"go-boilerplate/src/config"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/google/uuid"
 )
 
 func TokenValid(c *gin.Context) error {
 	tokenString := ExtractToken(c)
 	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(config.LoadConfig("API_SECRET")), nil
 	})
@@ -36,25 +36,34 @@ func ExtractToken(c *gin.Context) string {
 	return ""
 }
 
-func ExtractTokenID(c *gin.Context) (uint, error) {
+func ExtractTokenID(c *gin.Context) (uuid.UUID, error) {
 
 	tokenString := ExtractToken(c)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return []byte(config.LoadConfig("API_SECRET")), nil
 	})
 	if err != nil {
-		return 0, err
+		return uuid.Nil, err
 	}
+
 	claims, ok := token.Claims.(jwt.MapClaims)
-	if ok && token.Valid {
-		uid, err := strconv.ParseUint(fmt.Sprintf("%.0f", claims["id"]), 10, 32)
-		if err != nil {
-			return 0, err
-		}
-		return uint(uid), nil
+	if !ok || !token.Valid {
+		return uuid.Nil, fmt.Errorf("invalid token claims")
 	}
-	return 0, nil
+
+	// Parse the ID from claims
+	uidStr, ok := claims["id"].(string)
+	if !ok {
+		return uuid.Nil, fmt.Errorf("id claim is not a string")
+	}
+
+	uid, err := uuid.Parse(uidStr)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("failed to parse UUID: %v", err)
+	}
+
+	return uid, nil
 }
